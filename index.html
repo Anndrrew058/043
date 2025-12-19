@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>冒險者旅程 - V43 探險回饋版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+
+    <style>
+        /* [區塊 A] 8 色主題定義 */
+        :root { --p: #14b8a6; --bg: #020617; --c: #1e293b; --t: #f1f5f9; }
+        .theme-dark-teal { --p: #14b8a6; --bg: #020617; --c: #1e293b; --t: #f1f5f9; }
+        .theme-dark-pink { --p: #f472b6; --bg: #0f172a; --c: #1a1b2e; --t: #fce7f3; }
+        .theme-dark-gold { --p: #fbbf24; --bg: #1c1917; --c: #292524; --t: #fef3c7; }
+        .theme-dark-blue { --p: #3b82f6; --bg: #020617; --c: #1e293b; --t: #eff6ff; }
+        .theme-light-mint { --p: #059669; --bg: #f0fdf4; --c: #ffffff; --t: #064e3b; }
+        .theme-light-lavender { --p: #8b5cf6; --bg: #f5f3ff; --c: #ffffff; --t: #2e1065; }
+        .theme-light-sky { --p: #0ea5e9; --bg: #f0f9ff; --c: #ffffff; --t: #0c4a6e; }
+        .theme-light-clay { --p: #d97706; --bg: #fffbeb; --c: #ffffff; --t: #451a03; }
+
+        body { background-color: var(--bg); color: var(--t); transition: all 0.5s; font-family: 'Segoe UI', sans-serif; }
+        .card { background-color: var(--c); border: 1px solid rgba(255,255,255,0.05); }
+        .bg-primary { background-color: var(--p); }
+        .text-primary { color: var(--p); }
+        .border-primary { border-color: var(--p); }
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); }
+        
+        /* Tooltip */
+        .tooltip-content { opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; }
+        .group:hover .tooltip-content { opacity: 1; visibility: visible; transform: translate(0, 0); }
+        
+        /* Boss Styles */
+        .boss-card { border-color: #ef4444; background: linear-gradient(145deg, rgba(30,41,59,1) 0%, rgba(69,10,10,0.4) 100%); }
+        .boss-icon { filter: drop-shadow(0 0 5px #ef4444); }
+        
+        @keyframes action-pop { 0% { transform: scale(1); } 50% { transform: scale(1.4); filter: brightness(1.2); } 100% { transform: scale(1); } }
+        .animate-pop { animation: action-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .shake { animation: shake 0.4s ease-in-out; }
+        .damage-shake { animation: damage 0.2s ease-in-out; }
+        @keyframes damage { 0% { transform: translate(0,0) rotate(0deg); } 25% { transform: translate(5px, 5px) rotate(5deg); } 50% { transform: translate(-5px, -5px) rotate(-5deg); } 75% { transform: translate(5px, -5px) rotate(5deg); } 100% { transform: translate(0,0) rotate(0deg); } }
+        
+        /* Toast Animation */
+        @keyframes slide-up { 0% { transform: translate(-50%, 100%); opacity: 0; } 100% { transform: translate(-50%, 0); opacity: 1; } }
+        .animate-slide-up { animation: slide-up 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        select { -webkit-appearance: none; -moz-appearance: none; text-indent: 1px; text-overflow: ''; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // ---------------------------------------------------------------------
+        // 內建圖示組件 (SVG Icons)
+        // ---------------------------------------------------------------------
+        const Icon = ({ name, size = 16, className = "" }) => {
+            const commonProps = { xmlns: "http://www.w3.org/2000/svg", width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", className: className };
+            if (name === 'ChevronDown') return <svg {...commonProps}><path d="m6 9 6 6 6-6"/></svg>;
+            if (name === 'ChevronUp') return <svg {...commonProps}><path d="m18 15-6-6-6 6"/></svg>;
+            if (name === 'Plus') return <svg {...commonProps}><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
+            if (name === 'Trash2') return <svg {...commonProps}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>;
+            if (name === 'CheckSquare') return <svg {...commonProps}><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>;
+            if (name === 'Square') return <svg {...commonProps}><rect width="18" height="18" x="3" y="3" rx="2"/></svg>;
+            if (name === 'Calendar') return <svg {...commonProps}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>;
+            if (name === 'Clock') return <svg {...commonProps}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
+            if (name === 'Edit3') return <svg {...commonProps}><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>;
+            if (name === 'Lock') return <svg {...commonProps}><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>;
+            if (name === 'Settings') return <svg {...commonProps}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>;
+            if (name === 'X') return <svg {...commonProps}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
+            if (name === 'History') return <svg {...commonProps}><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>;
+            if (name === 'Archive') return <svg {...commonProps}><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>;
+            if (name === 'Save') return <svg {...commonProps}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>;
+            if (name === 'Sword') return <svg {...commonProps}><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" x2="19" y1="19" y2="13"/><line x1="16" x2="20" y1="16" y2="20"/><line x1="19" x2="21" y1="21" y2="19"/></svg>;
+            if (name === 'AlertCircle') return <svg {...commonProps}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>;
+            if (name === 'Bell') return <svg {...commonProps}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>;
+            if (name === 'Dice') return <svg {...commonProps}><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M16 8h.01"/><path d="M8 8h.01"/><path d="M8 16h.01"/><path d="M16 16h.01"/><path d="M12 12h.01"/></svg>;
+            if (name === 'Map') return <svg {...commonProps}><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" x2="8" y1="2" y2="18"/><line x1="16" x2="16" y1="6" y2="22"/></svg>;
+            if (name === 'Book') return <svg {...commonProps}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>;
+            if (name === 'Image') return <svg {...commonProps}><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>;
+            return null;
+        };
+
+        const THEMES = [
+            { id: 'theme-dark-teal', color: '#14b8a6' }, { id: 'theme-dark-pink', color: '#f472b6' },
+            { id: 'theme-dark-gold', color: '#fbbf24' }, { id: 'theme-dark-blue', color: '#3b82f6' },
+            { id: 'theme-light-mint', color: '#059669' }, { id: 'theme-light-lavender', color: '#8b5cf6' },
+            { id: 'theme-light-sky', color: '#0ea5e9' }, { id: 'theme-light-clay', color: '#d97706' }
+        ];
+
+        const AVATARS = ["⚔️", "🏹", "🧙", "🛡️", "🐉", "🐺", "🦅", "💎"];
+
+        // ---------------------------------------------------------------------
+        // [New] 奇遇資料庫
+        // ---------------------------------------------------------------------
+        const ENCOUNTER_DB = [
+            { title: "幸運的發現", desc: "你在舊外套口袋裡發現了皺巴巴的紙幣！", icon: "💰", reward: { gold: 100 }, text: "真是個好兆頭！" },
+            { title: "流浪商人", desc: "一位神秘的商人路過，送了你一瓶試喝藥水。", icon: "🧙‍♂️", reward: { potions: { red: 1 } }, text: "謝謝你的慷慨！" },
+            { title: "突如其來的暴雨", desc: "一場大雨把你淋成了落湯雞，但也讓你更清醒了。", icon: "🌧️", reward: { energy: -10, exp: 50 }, text: "這也是一種修行..." },
+            { title: "貓咪的禮物", desc: "你的守護獸不知從哪叼來了一個奇怪的東西...好像是肥料？", icon: "🐾", reward: { items: { fertilizer: 1 } }, text: "呃...謝謝你？" },
+            { title: "靈感湧現", desc: "腦中突然閃過一個絕妙的點子！", icon: "💡", reward: { exp: 100 }, text: "快記下來！" },
+            { title: "美味的便當", desc: "今天的午餐特別好吃，充滿了力量！", icon: "🍱", reward: { energy: 50 }, text: "歐伊系！" },
+            { title: "讀書會", desc: "參加了一場有趣的講座，學到了新知識。", icon: "📚", reward: { exp: 150 }, text: "知識就是力量。" }
+        ];
+
+        const DAILY_REMINDERS = [
+            { id: 'water', text: "💧 該喝水囉！補充水分保持活力。", interval: 90 * 60 * 1000, reward: { energy: 10, exp: 10 } },
+            { id: 'eye', text: "👀 讓眼睛休息一下，看看遠方。", interval: 45 * 60 * 1000, reward: { energy: 5, exp: 5 } },
+            { id: 'stretch', text: "🙆‍♂️ 起來動一動，伸展筋骨！", interval: 180 * 60 * 1000, reward: { energy: 15, exp: 15 } }
+        ];
+
+        const PET_SPECIES = {
+            cat: { name: '貓咪', icon: '🐱', desc: '靈活優雅的夥伴', evolutions: { A: { name: '白虎神獸', icon: '🐯', desc: '掌管西方的戰神' }, B: { name: '九命貓妖', icon: '🐈‍⬛', desc: '穿梭陰陽的靈貓' } } },
+            dog: { name: '狗狗', icon: '🐶', desc: '忠誠勇敢的衛士', evolutions: { A: { name: '天狼星', icon: '🐺', desc: '撕裂黑暗的銀牙' }, B: { name: '地獄犬', icon: '🐕', desc: '守護冥界的三頭犬' } } },
+            wolf: { name: '孤狼', icon: '🐺', desc: '荒野中的獵手', evolutions: { A: { name: '芬里爾', icon: '🌪️', desc: '吞噬日月的巨狼' }, B: { name: '冰原狼', icon: '❄️', desc: '極地寒冰的主宰' } } },
+            fox: { name: '狐狸', icon: '🦊', desc: '聰明狡黠的智者', evolutions: { A: { name: '九尾天狐', icon: '🔥', desc: '魅惑眾生的妖神' }, B: { name: '稻荷神使', icon: '⛩️', desc: '豐收與財富的象徵' } } },
+            owl: { name: '貓頭鷹', icon: '🦉', desc: '夜視千里的觀察者', evolutions: { A: { name: '暗夜主宰', icon: '🌑', desc: '無聲的暗殺者' }, B: { name: '智慧神鳥', icon: '📜', desc: '全知全能的學者' } } },
+            dragon: { name: '幼龍', icon: '🦎', desc: '潛藏力量的幼雛', evolutions: { A: { name: '巴哈姆特', icon: '🐉', desc: '萬龍之王的威嚴' }, B: { name: '提亞馬特', icon: '🐲', desc: '混沌之母的狂暴' } } }
+        };
+
+        const SHOP_ITEMS = [
+            { i: 'dry_food', t: 'item', c: 100, n: '🍪 寵物乾糧', desc: '普通的寵物食品，稍微恢復飽食度。' },
+            { i: 'food', t: 'item', c: 450, n: '🥩 優質肉塊', desc: '營養豐富，大幅恢復飽食度。' },
+            { i: 'canned_food', t: 'item', c: 800, n: '🐟 特級罐頭', desc: '美味無比，恢復大量飽食與心情。' },
+            { i: 'cat_nip', t: 'item', c: 300, n: '🌿 貓草/舒緩草', desc: '讓寵物放鬆，恢復心情。' },
+            { i: 'fertilizer', t: 'item', c: 250, n: '💩 特質肥料', desc: '加速植物生長。' },
+            { i: 'toy', t: 'item', c: 150, n: '🧶 逗貓棒', desc: '陪寵物玩耍，增加親密度。' },
+            { i: 'bandage', t: 'item', c: 200, n: '🩹 醫療繃帶', desc: '治療輕傷，恢復健康。' },
+            { i: 'med_kit', t: 'item', c: 1500, n: '🚑 急救箱', desc: '治療重傷，挽救危機。' },
+            { i: 'red', t: 'potion', c: 300, n: '🧪 生命藥劑', desc: '恢復玩家能量。' },
+            { i: 'gold', t: 'potion', c: 1200, n: '🧪 點金藥劑', desc: '消耗能量換取金幣。' },
+            { i: 'purple', t: 'potion', c: 2000, n: '🧪 賢者藥劑', desc: '直接獲得經驗值。' },
+        ];
+
+        // 探險地點與掉落物
+        const ADVENTURE_LOCATIONS = [
+            { id: 'forest', name: '迷霧森林', time: 2, cost: 20, loot: ['forest_card', 'ancient_coin', 'leaf_charm'] },
+            { id: 'beach', name: '陽光沙灘', time: 4, cost: 40, loot: ['beach_card', 'shell_necklace', 'pearl'] },
+            { id: 'ruins', name: '古老遺跡', time: 8, cost: 80, loot: ['ruins_card', 'dragon_scale', 'stone_tablet'] }
+        ];
+
+        const COLLECTION_DB = {
+            'forest_card': { name: '森林明信片', type: 'postcard', icon: '🌲', desc: '茂密的森林深處，彷彿有精靈居住。' },
+            'beach_card': { name: '海灘明信片', type: 'postcard', icon: '🏖️', desc: '陽光普照的沙灘，令人心曠神怡。' },
+            'ruins_card': { name: '遺跡明信片', type: 'postcard', icon: '🏛️', desc: '古文明的殘垣斷壁，訴說著歷史。' },
+            'ancient_coin': { name: '古老硬幣', type: 'artifact', icon: '🪙', desc: '刻有未知文字的古幣。' },
+            'leaf_charm': { name: '葉子護符', type: 'artifact', icon: '🍃', desc: '編織精美的葉子護身符。' },
+            'shell_necklace': { name: '貝殼項鍊', type: 'artifact', icon: '🐚', desc: '串著美麗貝殼的項鍊。' },
+            'pearl': { name: '光澤珍珠', type: 'artifact', icon: '⚪', desc: '圓潤飽滿的珍珠。' },
+            'dragon_scale': { name: '龍之鱗片', type: 'artifact', icon: '🐲', desc: '散發著微熱的堅硬鱗片。' },
+            'stone_tablet': { name: '石板碎片', type: 'artifact', icon: '🪨', desc: '記載著古老預言的石板。' }
+        };
+
+        const LocalDatabase = {
+            categories: [
+                { type: '力量', icon: '⚔️', keywords: ['跑', '健身', '打球', '運動', '爬山', '訓練', '重訓', '走'] },
+                { type: '智慧', icon: '🔮', keywords: ['學', '讀', '寫', '課', '考', '研究', '編程', '工作', '報告', '會議', '報到'] },
+                { type: '靈魂', icon: '✨', keywords: ['冥想', '睡', '休息', '放鬆', '音樂', '靜坐', '禱告', '瑜珈'] },
+                { type: '社交', icon: '🤝', keywords: ['聚會', '聊', '電話', '見面', '約會', '陪伴', '家', '友'] },
+                { type: '生活', icon: '🏠', keywords: ['洗', '掃', '買', '煮', '吃', '整理', '垃圾', '花', '繳費', '證件'] }
+            ],
+            autoClassify: (text) => {
+                for (let cat of LocalDatabase.categories) {
+                    if (cat.keywords.some(k => text.includes(k))) return { type: cat.type, icon: cat.icon };
+                }
+                return { type: '日常', icon: '📜' };
+            }
+        };
+
+        const SoundEngine = {
+            play: (type) => {
+                const sounds = {
+                    click: 'https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3',
+                    success: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3',
+                    fail: 'https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3',
+                    potion: 'https://assets.mixkit.co/active_storage/sfx/611/611-preview.mp3',
+                    water: 'https://assets.mixkit.co/active_storage/sfx/1118/1118-preview.mp3',
+                    eat: 'https://assets.mixkit.co/active_storage/sfx/2573/2573-preview.mp3',
+                    subtask: 'https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3',
+                    meow: 'https://assets.mixkit.co/active_storage/sfx/3004/3004-preview.mp3',
+                    harvest: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3',
+                    attack: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
+                    victory: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3',
+                    notification: 'https://assets.mixkit.co/active_storage/sfx/2865/2865-preview.mp3'
+                };
+                try {
+                    const audio = new Audio(sounds[type]);
+                    audio.volume = 0.4;
+                    const playPromise = audio.play();
+                    if (playPromise !== undefined) { playPromise.catch(error => {}); }
+                } catch(e) {}
+            }
+        };
+
+        const GrowthSystem = {
+            getTreeStage: (exp) => {
+                if (exp < 10) return { icon: '🌱', name: '幼苗期', next: '成長期', nextExp: 10 };
+                if (exp < 50) return { icon: '🌿', name: '成長期', next: '神木期', nextExp: 50 };
+                return { icon: '🌳', name: '神木期', next: '已達巔峰', nextExp: null };
+            },
+            getPetStage: (exp, type = 'cat', divinePath = null) => {
+                const speciesData = PET_SPECIES[type] || PET_SPECIES['cat'];
+                if (exp < 15) return { icon: speciesData.icon, name: `幼年${speciesData.name}`, next: `成年${speciesData.name}`, nextExp: 15 };
+                if (exp < 100) return { icon: speciesData.icon, name: `成年${speciesData.name}`, next: `神獸進化`, nextExp: 100 };
+                if (divinePath && speciesData.evolutions[divinePath]) {
+                    const evo = speciesData.evolutions[divinePath];
+                    return { icon: evo.icon, name: evo.name, next: '已達巔峰', nextExp: null };
+                }
+                return { icon: speciesData.icon, name: `神獸${speciesData.name}`, next: '已達巔峰', nextExp: null };
+            }
+        };
+
+        // ---------------------------------------------------------------------
+        // Tooltip 組件
+        // ---------------------------------------------------------------------
+        const Tooltip = ({ content, children, position = 'top' }) => {
+            const posClass = position === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2';
+            const arrowClass = position === 'bottom' ? 'bottom-full border-b-slate-800' : 'top-full border-t-slate-800';
+            const arrowBorder = position === 'bottom' ? 'border-b-8 border-x-8 border-x-transparent' : 'border-t-8 border-x-8 border-x-transparent';
+
+            return (
+                <div className="group relative flex items-center justify-center">
+                    {children}
+                    <div className={`tooltip-content absolute ${posClass} w-max max-w-xs bg-slate-800 border border-primary/30 text-xs rounded-lg p-3 shadow-xl z-50 pointer-events-none text-left`}>
+                        {content}
+                        <div className={`absolute left-1/2 -translate-x-1/2 ${arrowClass} ${arrowBorder}`}></div>
+                    </div>
+                </div>
+            );
+        };
+
+        const Modal = ({ title, children, onClose, width = 'max-w-sm' }) => (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay animate-fade-in">
+                <div className={`bg-slate-800 border-2 border-primary rounded-2xl p-6 w-full ${width} shadow-2xl relative animate-pop max-h-[90vh] overflow-y-auto`}>
+                    <button onClick={onClose} className="absolute top-4 right-4 text-white/50 hover:text-white z-10"><Icon name="X" /></button>
+                    <h3 className="text-xl font-bold text-primary mb-4 text-center">{title}</h3>
+                    {children}
+                </div>
+            </div>
+        );
+
+        // ---------------------------------------------------------------------
+        // [Component] 批量選擇組件 (Select)
+        // ---------------------------------------------------------------------
+        const BulkInput = ({ value, onChange }) => (
+            <div className="flex items-center gap-2 bg-black/20 px-2 py-1 rounded-lg text-xs border border-white/5">
+                <span className="opacity-50">批量</span>
+                <select 
+                    value={value} 
+                    onChange={(e) => onChange(parseInt(e.target.value))} 
+                    className="bg-transparent text-center outline-none font-bold cursor-pointer appearance-none text-right pr-1"
+                    style={{textAlignLast: 'center'}}
+                >
+                    <option value={1} className="bg-slate-800 text-white">x1</option>
+                    {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(num => (
+                        <option key={num} value={num} className="bg-slate-800 text-white">x{num}</option>
+                    ))}
+                </select>
+                <Icon name="ChevronDown" size={10} className="opacity-50 pointer-events-none" />
+            </div>
+        );
+
+        function App() {
+            const [player, setPlayer] = useState(() => {
+                const saved = JSON.parse(localStorage.getItem('v43_p'));
+                const defaultData = { 
+                    name: '冒險者', lv: 1, xp: 0, gold: 500, energy: 100, avatar: "⚔️",
+                    potions: { red: 1, gold: 0, purple: 0 }, 
+                    items: { fertilizer: 0, food: 0, dry_food: 0, canned_food: 0, cat_nip: 0, toy: 0, fruit: 0, bandage: 0, med_kit: 0 },
+                    collection: { postcards: [], artifacts: [] },
+                    theme: 'theme-dark-teal',
+                    base: {
+                        treeName: '希望之樹', treeExp: 0, treeProgress: 0,
+                        petName: '小夥伴', petExp: 0, petHunger: 80, petMood: 80, petStamina: 100, petType: null, divinePath: null,
+                        petStatus: 'idle', // 'idle', 'exploring', 'injured', 'critical'
+                        adventureEndTime: null, adventureLocation: null,
+                        lastUpdate: Date.now()
+                    }
+                };
+                return saved ? { ...defaultData, ...saved, base: { ...defaultData.base, ...saved.base } } : defaultData;
+            });
+            const [tasks, setTasks] = useState(() => JSON.parse(localStorage.getItem('v43_t')) || []);
+            const [history, setHistory] = useState(() => JSON.parse(localStorage.getItem('v43_h')) || []);
+            
+            const [activeEncounter, setActiveEncounter] = useState(null);
+            const [pendingReminders, setPendingReminders] = useState([]);
+            const [toast, setToast] = useState(null);
+            const [showReminderDropdown, setShowReminderDropdown] = useState(false);
+            const reminderRef = useRef(null); // Ref for reminder dropdown
+
+            const [bulkAmount, setBulkAmount] = useState(1);
+            const [input, setInput] = useState({ text: '', mode: 'duration', hours: 24, date: '' });
+            const [showAvatars, setShowAvatars] = useState(false);
+            const [activeAnim, setActiveAnim] = useState(null);
+            const [isShaking, setIsShaking] = useState(false);
+            const [curTime, setCurTime] = useState(new Date());
+            const [expandedTaskId, setExpandedTaskId] = useState(null);
+            const [viewMode, setViewMode] = useState('active');
+
+            const [modalConfig, setModalConfig] = useState(null);
+            const [tempInput, setTempInput] = useState('');
+
+            const maxEnergy = 100 + (player.lv * 15);
+            const maxExp = player.lv * 1000;
+
+            const showToast = (message) => {
+                setToast(message);
+                setTimeout(() => setToast(null), 3000);
+            };
+
+            const formatTime = (ms) => {
+                const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+                const m = Math.floor(totalSeconds / 60);
+                const s = totalSeconds % 60;
+                return `${m}分${s}秒`;
+            };
+
+            // Click outside handler for reminder dropdown
+            useEffect(() => {
+                const handleClickOutside = (event) => {
+                    if (reminderRef.current && !reminderRef.current.contains(event.target)) {
+                        setShowReminderDropdown(false);
+                    }
+                };
+                document.addEventListener("mousedown", handleClickOutside);
+                return () => {
+                    document.removeEventListener("mousedown", handleClickOutside);
+                };
+            }, []);
+
+            // 系統計時器 (奇遇、提醒、寵物狀態)
+            useEffect(() => {
+                const timer = setInterval(() => {
+                    const now = Date.now();
+                    
+                    // 隨機奇遇
+                    if (!activeEncounter && Math.random() < 0.05) {
+                        const randomEncounter = ENCOUNTER_DB[Math.floor(Math.random() * ENCOUNTER_DB.length)];
+                        setActiveEncounter(randomEncounter);
+                        SoundEngine.play('notification');
+                    }
+
+                    // 每日提醒
+                    const newReminders = [];
+                    DAILY_REMINDERS.forEach(reminder => {
+                        const lastTrigger = parseInt(localStorage.getItem(`reminder_${reminder.id}`) || '0');
+                        if (now - lastTrigger > reminder.interval) {
+                            newReminders.push(reminder);
+                            localStorage.setItem(`reminder_${reminder.id}`, now.toString());
+                        }
+                    });
+
+                    if (newReminders.length > 0) {
+                        setPendingReminders(prev => [...prev, ...newReminders]);
+                        SoundEngine.play('notification');
+                    }
+
+                    // 寵物冒險回歸檢查
+                    if (player.base.petStatus === 'exploring' && player.base.adventureEndTime && now >= player.base.adventureEndTime) {
+                        completeAdventure();
+                    }
+
+                    // 寵物自然狀態消耗
+                    setPlayer(p => {
+                        if (p.lv < 9) return p;
+                        
+                        // 探險中不扣飽食心情，但扣時間
+                        if (p.base.petStatus === 'exploring') return p;
+
+                        // 療養中恢復
+                        if (p.base.petStatus === 'critical') {
+                            // 這裡可以做自動恢復邏輯，暫時手動治療
+                            return p;
+                        }
+
+                        // 閒置狀態
+                        const newHunger = Math.max(0, p.base.petHunger - 1);
+                        const newMood = Math.max(0, p.base.petMood - 1);
+                        const newStamina = Math.min(100, p.base.petStamina + 1); // 慢慢回體
+                        
+                        let newProgress = p.base.treeProgress;
+                        if (newProgress < 100) newProgress += 0.2; 
+
+                        return { ...p, base: { ...p.base, petHunger: newHunger, petMood: newMood, petStamina: newStamina, treeProgress: newProgress } };
+                    });
+
+                }, 60000); // 每分鐘檢查
+                return () => clearInterval(timer);
+            }, [activeEncounter, player.base.petStatus, player.base.adventureEndTime]);
+
+            useEffect(() => {
+                localStorage.setItem('v43_p', JSON.stringify(player));
+                localStorage.setItem('v43_t', JSON.stringify(tasks));
+                localStorage.setItem('v43_h', JSON.stringify(history));
+                document.body.className = player.theme;
+                const timer = setInterval(() => setCurTime(new Date()), 1000);
+                return () => clearInterval(timer);
+            }, [player, tasks, history]);
+
+            useEffect(() => {
+                if (player.lv >= 9 && !player.base.petType && !modalConfig) {
+                    setModalConfig({ type: 'select_species' });
+                } else if (player.base.petExp >= 100 && !player.base.divinePath && !modalConfig) {
+                    setModalConfig({ type: 'evolve_species' });
+                }
+            }, [player.lv, player.base.petExp, player.base.petType, player.base.divinePath]);
+
+            const addExp = (amt, goldAmt = 0) => {
+                setPlayer(p => {
+                    let nXp = p.xp + amt;
+                    let nLv = p.lv;
+                    let nGold = p.gold + goldAmt;
+                    let nEnergy = p.energy;
+                    let nPot = { ...p.potions };
+                    while (nXp >= nLv * 1000) {
+                        nXp -= nLv * 1000; nLv++; nEnergy += 50; nGold += nLv * 150; nPot.red += 1;
+                        confetti(); SoundEngine.play('success'); showToast(`升級啦！等級 ${nLv}`);
+                    }
+                    return { ...p, xp: nXp, lv: nLv, gold: nGold, energy: nEnergy, potions: nPot };
+                });
+            };
+
+            const handleMystery = (cmd) => {
+                const match = cmd.match(/(exp|gold|hp|all)\((\d+)\)/);
+                
+                // 處理特殊字串指令
+                const isSpecialCommand = ['reset_pet', 'max_pet', 'trigger_event', 'trigger_remind'].includes(cmd);
+                
+                if (!match && !isSpecialCommand) return false;
+
+                if (match) {
+                    const [_, type, val] = match;
+                    const num = parseInt(val);
+                    if (type === 'exp' || type === 'all') addExp(num);
+                    if (type === 'gold' || type === 'all') setPlayer(p => ({ ...p, gold: p.gold + num }));
+                    if (type === 'hp' || type === 'all') setPlayer(p => ({ ...p, energy: Math.min(maxEnergy, p.energy + num) }));
+                }
+
+                if (cmd === 'reset_pet') setPlayer(p => ({ ...p, base: { ...p.base, petType: null, petExp: 0, divinePath: null } })); 
+                if (cmd === 'max_pet') setPlayer(p => ({ ...p, base: { ...p.base, petExp: 100 } })); 
+                if (cmd === 'trigger_event') setActiveEncounter(ENCOUNTER_DB[0]);
+                if (cmd === 'trigger_remind') setPendingReminders([...pendingReminders, DAILY_REMINDERS[0]]);
+                
+                SoundEngine.play('success');
+                showToast("指令已執行");
+                return true;
+            };
+
+            const shopBuy = (item, type, cost) => {
+                const quantity = Number(bulkAmount) || 1;
+                const totalCost = cost * quantity;
+                if (player.gold >= totalCost) {
+                    SoundEngine.play('click');
+                    setPlayer(p => {
+                        let newP = { ...p, gold: p.gold - totalCost };
+                        if (type === 'potion') newP.potions[item] = (newP.potions[item] || 0) + quantity;
+                        else newP.items[item] = (newP.items[item] || 0) + quantity;
+                        return newP;
+                    });
+                    showToast(`🛒 購買成功：${quantity} 個道具`);
+                } else {
+                    setIsShaking(true); setTimeout(()=>setIsShaking(false), 400); showToast(`❌ 金幣不足！`);
+                }
+            };
+
+            const usePotion = (type) => {
+                 if (player.potions[type] <= 0) return;
+                 if (type === 'gold' && player.energy < 30) { setIsShaking(true); setTimeout(()=>setIsShaking(false), 400); return; }
+                 SoundEngine.play('potion');
+                 setPlayer(p => {
+                    let nPot = { ...p.potions, [type]: p.potions[type] - 1 };
+                    if (type === 'red') return { ...p, potions: nPot, energy: Math.min(maxEnergy, p.energy + 60) };
+                    if (type === 'gold') return { ...p, potions: nPot, gold: p.gold + 1200, energy: p.energy - 30 };
+                    if (type === 'purple') { addExp(2500); return { ...p, potions: nPot }; }
+                    return p;
+                 });
+                 showToast(`🧪 使用了藥劑`);
+            };
+
+            const handleBaseAction = (action) => {
+                let currentStock = 0;
+                // mapping action to item key
+                const map = { 'fertilize': 'fertilizer', 'feed': 'food', 'dry_food': 'dry_food', 'canned': 'canned_food', 'cat_nip': 'cat_nip', 'toy': 'toy' };
+                currentStock = player.items[map[action]];
+                
+                const requestedAmount = Number(bulkAmount) || 1;
+                const amount = Math.min(requestedAmount, currentStock);
+
+                if (amount > 0) {
+                     let updates = {};
+                     if (action === 'fertilize') {
+                         SoundEngine.play('water'); setActiveAnim('f');
+                         updates = { treeProgress: 25 * amount, treeExp: 2 * amount };
+                         showToast(`💧 施肥成功 x${amount}`);
+                     } else {
+                         // Pet actions
+                         SoundEngine.play(action === 'toy' ? 'meow' : 'eat'); setActiveAnim('p');
+                         if (action === 'feed') { updates = { petHunger: 40 * amount, petExp: 2 * amount }; showToast(`🥩 餵食成功 x${amount}`); }
+                         if (action === 'dry_food') { updates = { petHunger: 20 * amount, petExp: 1 * amount }; showToast(`🍪 餵食成功 x${amount}`); }
+                         if (action === 'canned') { updates = { petHunger: 80 * amount, petMood: 20 * amount, petExp: 5 * amount }; showToast(`🐟 餵食成功 x${amount}`); }
+                         if (action === 'cat_nip') { updates = { petMood: 50 * amount, petExp: 2 * amount }; showToast(`🌿 使用成功 x${amount}`); }
+                         if (action === 'toy') { setActiveAnim('toy'); updates = { petMood: 30 * amount, petExp: 3 * amount }; showToast(`🧶 玩耍成功 x${amount}`); }
+                     }
+
+                     setPlayer(p => {
+                         const newItems = { ...p.items, [map[action]]: p.items[map[action]] - amount };
+                         let newBase = { ...p.base };
+                         if (updates.treeProgress) newBase.treeProgress = Math.min(100, newBase.treeProgress + updates.treeProgress);
+                         if (updates.treeExp) newBase.treeExp += updates.treeExp;
+                         if (updates.petHunger) newBase.petHunger = Math.min(100, newBase.petHunger + updates.petHunger);
+                         if (updates.petMood) newBase.petMood = Math.min(100, newBase.petMood + updates.petMood);
+                         if (updates.petExp) newBase.petExp += updates.petExp;
+                         return { ...p, items: newItems, base: newBase };
+                     });
+                     setTimeout(() => setActiveAnim(null), 600);
+                } else {
+                    setIsShaking(true); setTimeout(()=>setIsShaking(false), 400); showToast(`❌ 道具不足！`);
+                }
+            };
+
+            const harvestFruit = () => {
+                if (player.base.treeProgress >= 100) {
+                    SoundEngine.play('harvest');
+                    setPlayer(p => ({ ...p, items: { ...p.items, fruit: p.items.fruit + 1 }, base: { ...p.base, treeProgress: 0 } }));
+                    addExp(50);
+                    showToast(`🍎 採收了奇蹟果實！`);
+                }
+            };
+
+            const consumeFruit = () => {
+                if (player.items.fruit > 0) {
+                    SoundEngine.play('eat');
+                    setPlayer(p => ({ ...p, energy: Math.min(maxEnergy, p.energy + 80), items: { ...p.items, fruit: p.items.fruit - 1 } }));
+                    showToast(`🍎 吃了果實，能量滿滿！`);
+                }
+            };
+
+            const startAdventure = (locationId) => {
+                const location = ADVENTURE_LOCATIONS.find(l => l.id === locationId);
+                if (player.base.petStamina < location.cost) {
+                    showToast("❌ 體力不足！"); return;
+                }
+                if (player.base.petStatus !== 'idle') {
+                    showToast("❌ 寵物狀態不適合探險"); return;
+                }
+
+                setPlayer(p => ({
+                    ...p,
+                    base: {
+                        ...p.base,
+                        petStatus: 'exploring',
+                        petStamina: p.base.petStamina - location.cost,
+                        adventureLocation: locationId,
+                        adventureEndTime: Date.now() + (location.time * 60 * 1000) // mins to ms
+                    }
+                }));
+                setModalConfig(null);
+                showToast(`🎒 ${player.base.petName} 出發去 ${location.name} 了！`);
+            };
+
+            const completeAdventure = () => {
+                const locId = player.base.adventureLocation;
+                const location = ADVENTURE_LOCATIONS.find(l => l.id === locId);
+                
+                // Calculate Outcome
+                const successChance = (player.base.petMood + player.base.petHunger) / 200; // 0.0 - 1.0
+                const roll = Math.random();
+                
+                let result = { type: 'success', msg: '', reward: {} };
+                
+                if (roll > successChance + 0.1) { // Injured
+                     // 20% chance of critical injury if very unlucky
+                     if (Math.random() < 0.2) {
+                         result.type = 'critical';
+                         result.msg = `${player.base.petName} 受了重傷回來，需要緊急治療！`;
+                     } else {
+                         result.type = 'injured';
+                         result.msg = `${player.base.petName} 在探險中受了點輕傷。`;
+                     }
+                } else {
+                    result.type = 'success';
+                    result.msg = `${player.base.petName} 平安歸來！`;
+                    // Loot logic
+                    const expGain = location.time * 50;
+                    const goldGain = location.time * 30;
+                    addExp(expGain, goldGain); // Add directly
+
+                    // Item loot
+                    if (Math.random() < 0.3) {
+                        const lootItem = location.loot[Math.floor(Math.random() * location.loot.length)];
+                        // Add to collection if not exists, or just inventory logic?
+                        // Let's put in collection
+                        setPlayer(p => {
+                            const newCol = { ...p.collection };
+                            if (COLLECTION_DB[lootItem].type === 'postcard') {
+                                if (!newCol.postcards.includes(lootItem)) newCol.postcards.push(lootItem);
+                            } else {
+                                if (!newCol.artifacts.includes(lootItem)) newCol.artifacts.push(lootItem);
+                            }
+                            return { ...p, collection: newCol };
+                        });
+                        // Pass loot item ID to result for display
+                        result.loot = lootItem;
+                        result.msg += ` 獲得了 ${COLLECTION_DB[lootItem].name}！`;
+                    }
+                }
+
+                setPlayer(p => ({
+                    ...p,
+                    base: {
+                        ...p.base,
+                        petStatus: result.type === 'success' ? 'idle' : result.type,
+                        adventureLocation: null,
+                        adventureEndTime: null
+                    }
+                }));
+
+                setModalConfig({ type: 'adventure_result', result });
+            };
+
+            const treatPet = (method) => {
+                if (method === 'bandage') {
+                    if (player.items.bandage > 0) {
+                        setPlayer(p => ({ ...p, items: { ...p.items, bandage: p.items.bandage - 1 }, base: { ...p.base, petStatus: 'idle', petMood: p.base.petMood + 20 } }));
+                        showToast("🩹 包紮完成，寵物恢復了！");
+                    } else showToast("❌ 沒有繃帶！");
+                } else if (method === 'med_kit') {
+                    if (player.items.med_kit > 0) {
+                        setPlayer(p => ({ ...p, items: { ...p.items, med_kit: p.items.med_kit - 1 }, base: { ...p.base, petStatus: 'idle', petStamina: 50 } }));
+                        showToast("🚑 急救成功，寵物脫離危險！");
+                    } else showToast("❌ 沒有急救箱！");
+                }
+            };
+
+            const handleAddTask = () => {
+                if (!input.text) return;
+                if (handleMystery(input.text)) { setInput({ ...input, text: '' }); return; }
+                const { type, icon } = LocalDatabase.autoClassify(input.text);
+                let deadline = input.mode === 'date' && input.date ? new Date(input.date).getTime() : new Date().getTime() + (input.hours * 3600000);
+                const finalDurationHours = Math.max(1, Math.floor((deadline - new Date().getTime()) / 3600000));
+                
+                const isBoss = finalDurationHours > 72;
+                
+                const newTaskId = Date.now();
+                setTasks([{ 
+                    id: newTaskId, 
+                    content: input.text, 
+                    type, 
+                    icon: isBoss ? '👹' : icon, 
+                    deadline, 
+                    gold: Math.max(10, finalDurationHours * 50), 
+                    exp: Math.max(20, finalDurationHours * 100), 
+                    subtasks: [],
+                    isBoss: isBoss
+                }, ...tasks]);
+                SoundEngine.play('click');
+                setInput({ ...input, text: '' });
+                setExpandedTaskId(newTaskId);
+                showToast(isBoss ? "👹 BOSS 級任務已發布！" : "📜 新委託已建立");
+            };
+
+            const addSubtask = (taskId, text) => {
+                if (!text.trim()) return;
+                setTasks(tasks.map(t => t.id === taskId ? { ...t, subtasks: [...(t.subtasks || []), { id: Date.now(), text, completed: false }] } : t));
+                SoundEngine.play('click');
+            };
+
+            const toggleSubtask = (taskId, subtaskId) => {
+                const task = tasks.find(t => t.id === taskId);
+                const isBossAction = task && task.isBoss;
+
+                if (isBossAction) {
+                    setActiveAnim(taskId); 
+                    SoundEngine.play('attack');
+                    setTimeout(() => setActiveAnim(null), 200);
+                } else {
+                    SoundEngine.play('subtask');
+                }
+
+                setTasks(tasks.map(t => {
+                    if (t.id === taskId) return { ...t, subtasks: (t.subtasks || []).map(st => st.id === subtaskId ? { ...st, completed: !st.completed } : st) };
+                    return t;
+                }));
+                
+                if (isBossAction) addExp(50, 20);
+                else addExp(20, 10);
+            };
+
+            const removeSubtask = (taskId, subtaskId) => {
+                setTasks(tasks.map(t => t.id === taskId ? { ...t, subtasks: (t.subtasks || []).filter(st => st.id !== subtaskId) } : t));
+            };
+
+            // Modal Actions
+            const confirmRename = () => {
+                if (tempInput.trim()) {
+                    setPlayer(p => ({ ...p, base: { ...p.base, [modalConfig.type === 'rename_tree' ? 'treeName' : 'petName']: tempInput } }));
+                }
+                setModalConfig(null); setTempInput('');
+                showToast("命名成功！");
+            };
+
+            const confirmSpecies = (speciesKey) => {
+                setPlayer(p => ({ ...p, base: { ...p.base, petType: speciesKey, petName: PET_SPECIES[speciesKey].name } }));
+                setModalConfig(null);
+                SoundEngine.play('success');
+                confetti();
+            };
+
+            const confirmEvolution = (pathKey) => {
+                setPlayer(p => ({ ...p, base: { ...p.base, divinePath: pathKey } }));
+                setModalConfig(null);
+                SoundEngine.play('success');
+                confetti();
+            };
+
+            const initiateComplete = (task) => {
+                setModalConfig({ type: 'complete_confirm', task });
+            };
+
+            const confirmComplete = (archive) => {
+                const task = modalConfig.task;
+                const expBonus = task.isBoss ? 500 : 0;
+                const goldBonus = task.isBoss ? 1000 : 0;
+
+                addExp(task.exp + expBonus);
+                setPlayer(p => ({ ...p, gold: p.gold + task.gold + goldBonus }));
+                
+                if (archive) {
+                    setHistory([{ ...task, completedAt: Date.now() }, ...history]);
+                }
+                setTasks(tasks.filter(t => t.id !== task.id));
+                setModalConfig(null);
+                
+                if (task.isBoss) SoundEngine.play('victory');
+                else SoundEngine.play('success');
+                
+                confetti();
+                showToast(`🎉 任務完成！獲得大量獎勵`);
+            };
+
+            const handleEncounter = () => {
+                if (!activeEncounter) return;
+                setModalConfig({ type: 'encounter', data: activeEncounter });
+            };
+
+            const confirmEncounter = () => {
+                const enc = modalConfig.data;
+                const reward = enc.reward || {};
+                
+                setPlayer(p => {
+                    let newP = { ...p };
+                    if (reward.gold) newP.gold += reward.gold;
+                    if (reward.energy) newP.energy = Math.min(maxEnergy, newP.energy + reward.energy);
+                    if (reward.items) Object.keys(reward.items).forEach(k => { newP.items[k] = (newP.items[k] || 0) + reward.items[k]; });
+                    if (reward.potions) Object.keys(reward.potions).forEach(k => { newP.potions[k] = (newP.potions[k] || 0) + reward.potions[k]; });
+                    return newP;
+                });
+                
+                if (reward.exp) addExp(reward.exp);
+
+                setActiveEncounter(null);
+                setModalConfig(null);
+                SoundEngine.play('success');
+                showToast("奇遇結束，收穫滿滿！");
+            };
+
+            const handleReminderClick = (index) => {
+                const reminder = pendingReminders[index];
+                addExp(reminder.reward.exp);
+                setPlayer(p => ({ ...p, energy: Math.min(maxEnergy, p.energy + reminder.reward.energy) }));
+                
+                const newReminders = [...pendingReminders];
+                newReminders.splice(index, 1);
+                setPendingReminders(newReminders);
+                
+                SoundEngine.play('success');
+                confetti();
+                showToast(`✅ 完成提醒：${reminder.text.split(' ')[1] || '健康生活'} (能量 +${reminder.reward.energy}, XP +${reminder.reward.exp})`);
+            };
+
+            const treeStage = GrowthSystem.getTreeStage(player.base.treeExp);
+            const petStage = GrowthSystem.getPetStage(player.base.petExp, player.base.petType, player.base.divinePath);
+
+            const treeTooltip = (
+                <div className="text-left space-y-1">
+                    <div className="font-bold border-b border-white/20 pb-1 mb-1">{treeStage.icon} {treeStage.name}</div>
+                    <div>當前經驗: {player.base.treeExp}</div>
+                    {treeStage.nextExp ? <div className="text-green-400">下一階: {treeStage.next} (需 {treeStage.nextExp})</div> : <div className="text-yellow-400">已達最高階段</div>}
+                </div>
+            );
+
+            const petTooltip = (
+                <div className="text-left space-y-1">
+                    <div className="font-bold border-b border-white/20 pb-1 mb-1">{petStage.icon} {petStage.name}</div>
+                    <div>當前經驗: {player.base.petExp}</div>
+                    {petStage.nextExp ? <div className="text-orange-400">下一階: {petStage.next} (需 {petStage.nextExp})</div> : <div className="text-yellow-400">已達最高階段</div>}
+                </div>
+            );
+
+            const goldTooltip = (<div className="text-left"><div className="font-bold text-yellow-400">冒險者金幣</div><div className="text-white/70">完成任務可獲得，用於在交易所購買物資。</div></div>);
+            const xpTooltip = (<div className="text-left"><div className="font-bold text-primary">冒險經驗值</div><div className="text-white/70">累積經驗提升等級 (Lv.9 解鎖秘密基地)。</div></div>);
+            const energyTooltip = (<div className="text-left"><div className="font-bold text-orange-400">生存能量</div><div className="text-white/70">執行任務與互動需要能量。自然恢復或吃藥水補充。</div></div>);
+            
+            const potionTooltips = {
+                red: <div className="text-left"><div className="font-bold text-red-400">生命藥劑</div><div className="text-white/70">立即恢復 60 點生存能量。</div></div>,
+                gold: <div className="text-left"><div className="font-bold text-yellow-400">點金藥劑</div><div className="text-white/70">消耗 30 能量，轉化為 1200 金幣。</div></div>,
+                purple: <div className="text-left"><div className="font-bold text-purple-400">賢者藥劑</div><div className="text-white/70">直接獲得 2500 經驗值。</div></div>
+            };
+
+            return (
+                <div className={`p-4 min-h-screen ${isShaking ? 'shake' : ''}`}>
+                    {toast && (
+                        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-800 border-2 border-primary text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-slide-up z-50 pointer-events-none">
+                            <span className="text-xl">✨</span>
+                            <span className="font-bold text-sm">{toast}</span>
+                        </div>
+                    )}
+
+                    {modalConfig && (
+                        <Modal 
+                            title={
+                                modalConfig.type === 'rename_tree' ? '為神木命名' : 
+                                modalConfig.type === 'rename_pet' ? '為夥伴命名' : 
+                                modalConfig.type === 'select_species' ? '選擇你的守護靈獸' : 
+                                modalConfig.type === 'evolve_species' ? '神獸進化抉擇' : 
+                                modalConfig.type === 'complete_confirm' ? '任務完成！' : 
+                                modalConfig.type === 'encounter' ? '✨ 突發奇遇！' : 
+                                modalConfig.type === 'adventure' ? '選擇探險地點' : 
+                                modalConfig.type === 'adventure_result' ? '探險報告' :
+                                modalConfig.type === 'collection' ? '冒險圖鑑' : ''
+                            } 
+                            onClose={() => { if(modalConfig.type !== 'select_species' && modalConfig.type !== 'evolve_species') setModalConfig(null); }}
+                            width={modalConfig.type==='collection'?'max-w-2xl':'max-w-sm'}
+                        >
+                            
+                            {modalConfig.type.includes('rename') && (
+                                <div className="space-y-4">
+                                    <input autoFocus value={tempInput} onChange={e => setTempInput(e.target.value)} className="w-full bg-black/50 p-3 rounded-xl text-center text-lg outline-none border border-primary" placeholder="輸入名字..." />
+                                    <button onClick={confirmRename} className="w-full bg-primary py-3 rounded-xl font-bold">確認</button>
+                                </div>
+                            )}
+
+                            {modalConfig.type === 'adventure' && (
+                                <div className="space-y-3">
+                                    <div className="text-center mb-4">
+                                        <div className="text-4xl mb-2">{petStage.icon}</div>
+                                        <div className="text-sm opacity-70">體力: {player.base.petStamina}/100</div>
+                                    </div>
+                                    {ADVENTURE_LOCATIONS.map(loc => (
+                                        <button key={loc.id} onClick={() => startAdventure(loc.id)} disabled={player.base.petStamina < loc.cost} className="w-full flex justify-between items-center bg-white/5 hover:bg-primary/20 p-3 rounded-xl border border-white/10 disabled:opacity-30 transition-all">
+                                            <div className="text-left">
+                                                <div className="font-bold">{loc.name}</div>
+                                                <div className="text-xs opacity-50">需 {loc.time} 分鐘</div>
+                                            </div>
+                                            <div className="text-orange-400 font-bold">-{loc.cost} ⚡</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {modalConfig.type === 'adventure_result' && (
+                                <div className="text-center space-y-4">
+                                    <div className="text-6xl animate-bounce">
+                                        {modalConfig.result.type === 'success' ? '🎉' : modalConfig.result.type === 'injured' ? '🤕' : '🚑'}
+                                    </div>
+                                    <h3 className="text-xl font-bold">{modalConfig.result.msg}</h3>
+                                    {/* Display Loot Card */}
+                                    {modalConfig.result.loot && (
+                                        <div className="bg-yellow-500/10 p-4 rounded-xl border border-yellow-500/50 animate-pop flex flex-col items-center gap-2">
+                                            <div className="text-4xl">{COLLECTION_DB[modalConfig.result.loot].icon}</div>
+                                            <div className="font-bold text-yellow-300">{COLLECTION_DB[modalConfig.result.loot].name}</div>
+                                            <div className="text-xs opacity-70">{COLLECTION_DB[modalConfig.result.loot].desc}</div>
+                                        </div>
+                                    )}
+                                    <button onClick={() => setModalConfig(null)} className="w-full bg-primary py-3 rounded-xl font-bold">知道了</button>
+                                </div>
+                            )}
+
+                            {modalConfig.type === 'collection' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto">
+                                    <div>
+                                        <h4 className="font-bold text-center mb-2 border-b border-white/10 pb-2">明信片 ({player.collection.postcards.length})</h4>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {player.collection.postcards.map(id => (
+                                                <div key={id} className="bg-white/10 p-2 rounded-lg text-center">
+                                                    <div className="text-2xl mb-1">{COLLECTION_DB[id].icon}</div>
+                                                    <div className="text-xs font-bold">{COLLECTION_DB[id].name}</div>
+                                                </div>
+                                            ))}
+                                            {player.collection.postcards.length===0 && <div className="text-xs opacity-30 col-span-2 text-center py-4">尚無收藏</div>}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-center mb-2 border-b border-white/10 pb-2">奇物 ({player.collection.artifacts.length})</h4>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {player.collection.artifacts.map(id => (
+                                                <div key={id} className="bg-yellow-500/10 p-2 rounded-lg text-center border border-yellow-500/20">
+                                                    <div className="text-2xl mb-1">{COLLECTION_DB[id].icon}</div>
+                                                    <div className="text-xs font-bold text-yellow-200">{COLLECTION_DB[id].name}</div>
+                                                </div>
+                                            ))}
+                                            {player.collection.artifacts.length===0 && <div className="text-xs opacity-30 col-span-2 text-center py-4">尚無收藏</div>}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {modalConfig.type === 'select_species' && (
+                                <div className="grid grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto">
+                                    {Object.entries(PET_SPECIES).map(([key, data]) => (
+                                        <button key={key} onClick={() => confirmSpecies(key)} className="bg-white/5 hover:bg-primary/20 p-4 rounded-xl flex flex-col items-center gap-2 border border-white/10 transition-all">
+                                            <span className="text-4xl">{data.icon}</span>
+                                            <span className="font-bold">{data.name}</span>
+                                            <span className="text-[10px] opacity-60 text-center">{data.desc}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {modalConfig.type === 'evolve_species' && player.base.petType && (
+                                <div className="space-y-4 text-center">
+                                    <p className="text-sm opacity-80 mb-4">你的 {PET_SPECIES[player.base.petType].name} 力量已達巔峰，請選擇進化型態：</p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {Object.entries(PET_SPECIES[player.base.petType].evolutions).map(([key, data]) => (
+                                            <button key={key} onClick={() => confirmEvolution(key)} className="bg-gradient-to-b from-slate-700 to-slate-900 hover:border-yellow-400 border-2 border-transparent p-4 rounded-xl flex flex-col items-center gap-2 transition-all">
+                                                <span className="text-5xl animate-bounce">{data.icon}</span>
+                                                <span className="font-bold text-yellow-400">{data.name}</span>
+                                                <span className="text-[10px] opacity-60">{data.desc}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {modalConfig.type === 'encounter' && (
+                                <div className="space-y-4 text-center">
+                                    <div className="text-6xl animate-bounce mb-2">{modalConfig.data.icon}</div>
+                                    <h4 className="text-xl font-bold">{modalConfig.data.title}</h4>
+                                    <p className="text-white/70 text-sm">{modalConfig.data.desc}</p>
+                                    <div className="bg-white/5 p-3 rounded-lg text-sm mt-2">
+                                        {modalConfig.data.reward.gold && <span className="block text-yellow-400">💰 金幣 {modalConfig.data.reward.gold > 0 ? '+' : ''}{modalConfig.data.reward.gold}</span>}
+                                        {modalConfig.data.reward.exp && <span className="block text-primary">✨ 經驗 {modalConfig.data.reward.exp > 0 ? '+' : ''}{modalConfig.data.reward.exp}</span>}
+                                        {modalConfig.data.reward.energy && <span className="block text-orange-400">⚡ 能量 {modalConfig.data.reward.energy > 0 ? '+' : ''}{modalConfig.data.reward.energy}</span>}
+                                        {modalConfig.data.reward.items && Object.keys(modalConfig.data.reward.items).map(k => <span key={k} className="block text-green-400">🎒 道具 +{modalConfig.data.reward.items[k]}</span>)}
+                                        {modalConfig.data.reward.potions && Object.keys(modalConfig.data.reward.potions).map(k => <span key={k} className="block text-purple-400">🧪 藥水 +{modalConfig.data.reward.potions[k]}</span>)}
+                                    </div>
+                                    <button onClick={confirmEncounter} className="w-full bg-primary py-3 rounded-xl font-bold mt-2">
+                                        {modalConfig.data.text}
+                                    </button>
+                                </div>
+                            )}
+
+                            {modalConfig.type === 'complete_confirm' && (
+                                <div className="space-y-4 text-center">
+                                    <p className="opacity-80">恭喜完成 <span className="font-bold text-primary">{modalConfig.task.content}</span>！</p>
+                                    <p className="text-xs opacity-50">獲得 {modalConfig.task.gold} Gold, {modalConfig.task.exp} XP {modalConfig.task.isBoss && <span className="text-red-400 block mt-1 font-bold">(含BOSS擊殺加成!)</span>}</p>
+                                    <p className="text-sm my-4 font-bold">是否要將此冒險事蹟留存於歷史？</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button onClick={() => confirmComplete(true)} className="bg-primary hover:brightness-110 py-3 rounded-xl font-bold flex items-center justify-center gap-2">
+                                            <Icon name="Archive" size={16} /> 留存紀錄
+                                        </button>
+                                        <button onClick={() => confirmComplete(false)} className="bg-red-500/20 hover:bg-red-500 hover:text-white text-red-400 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all">
+                                            <Icon name="Trash2" size={16} /> 直接銷毀
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </Modal>
+                    )}
+
+                    <header className="card max-w-5xl mx-auto p-6 rounded-3xl shadow-2xl border-b-4 border-primary flex flex-wrap gap-8 items-center relative overflow-visible">
+                        <div className="flex flex-col gap-4 items-center">
+                            <button onClick={() => setShowAvatars(!showAvatars)} className="text-5xl bg-white/5 p-4 rounded-2xl hover:bg-primary/20 transition-all">{player.avatar}</button>
+                            <div className="flex gap-1">
+                                {THEMES.map(t => <button key={t.id} onClick={()=>setPlayer({...player, theme: t.id})} className="w-4 h-4 rounded-full border border-white/10" style={{background: t.color}} />)}
+                            </div>
+                            {showAvatars && (
+                                <div className="absolute top-24 left-6 z-50 bg-slate-800 p-3 rounded-xl grid grid-cols-4 gap-2 shadow-2xl border border-white/10 w-44">
+                                    {AVATARS.map(a => <button key={a} onClick={()=>{setPlayer({...player, avatar: a}); setShowAvatars(false);}} className="text-2xl hover:scale-110 transition-transform">{a}</button>)}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex-1 space-y-4">
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                    <input value={player.name} onChange={e => setPlayer({...player, name: e.target.value})} className="bg-transparent font-black text-2xl outline-none border-b border-white/5 focus:border-primary w-40" />
+                                    <Tooltip content={goldTooltip} position="bottom">
+                                        <span className="text-yellow-500 font-bold cursor-help">💰 {player.gold}</span>
+                                    </Tooltip>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {activeEncounter && (
+                                        <button onClick={handleEncounter} className="relative animate-bounce bg-red-500/20 p-2 rounded-full border border-red-500 text-red-400 hover:bg-red-500 hover:text-white transition-colors">
+                                            <Icon name="AlertCircle" size={20} />
+                                        </button>
+                                    )}
+                                    {/* Fixed Reminder Dropdown */}
+                                    <div className="relative" ref={reminderRef}>
+                                        <button 
+                                            onClick={() => setShowReminderDropdown(!showReminderDropdown)}
+                                            className={`p-2 rounded-full border transition-colors ${pendingReminders.length > 0 ? 'bg-blue-500/20 border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white' : 'border-white/10 text-white/30'}`}
+                                        >
+                                            <Icon name="Bell" size={20} />
+                                            {pendingReminders.length > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full text-[10px] flex items-center justify-center text-white">{pendingReminders.length}</span>}
+                                        </button>
+                                        {showReminderDropdown && pendingReminders.length > 0 && (
+                                            <div className="absolute top-full right-0 mt-2 w-64 bg-slate-800 border border-blue-500/30 rounded-xl shadow-2xl p-2 z-50 animate-pop">
+                                                {pendingReminders.map((r, idx) => (
+                                                    <div key={idx} onClick={() => handleReminderClick(idx)} className="p-3 hover:bg-white/10 rounded-lg cursor-pointer flex items-center gap-2 border-b border-white/5 last:border-0">
+                                                        <span className="text-lg">🔔</span>
+                                                        <div className="text-xs text-left">
+                                                            <div className="font-bold text-blue-200">{r.text}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="font-mono text-sm opacity-50 border border-white/10 px-3 py-1 rounded-full bg-black/20">🕒 {curTime.toLocaleTimeString()}</div>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Tooltip content={xpTooltip} position="bottom">
+                                    <div className="cursor-help">
+                                        <div className="flex justify-between text-[10px] font-bold opacity-40 uppercase tracking-widest"><span>Lv.{player.lv} XP</span><span>{Math.floor(player.xp)} / {maxExp}</span></div>
+                                        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-primary transition-all duration-700" style={{width:`${(player.xp/maxExp)*100}%`}} /></div>
+                                    </div>
+                                </Tooltip>
+                                <Tooltip content={energyTooltip} position="bottom">
+                                    <div className="cursor-help">
+                                        <div className="flex justify-between text-[10px] font-bold opacity-40 uppercase tracking-widest text-orange-400"><span>Energy</span><span>{Math.floor(player.energy)} / {maxEnergy}</span></div>
+                                        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-orange-500 transition-all duration-700" style={{width:`${(player.energy/maxEnergy)*100}%`}} /></div>
+                                    </div>
+                                </Tooltip>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2 min-w-[140px]">
+                            {['red', 'gold', 'purple'].map(type => (
+                                <Tooltip key={type} content={potionTooltips[type]} position="bottom">
+                                    <button onClick={() => usePotion(type)} className={`w-full flex justify-between p-2 rounded-lg text-[10px] font-bold border hover:brightness-125 ${type==='red'?'bg-red-500/10 border-red-500/20 text-red-400':type==='gold'?'bg-yellow-500/10 border-yellow-500/20 text-yellow-400':'bg-purple-500/10 border-purple-500/20 text-purple-400'}`}>
+                                        <span>{type==='red'?'🧪 生命藥劑':type==='gold'?'🧪 點金藥劑':'🧪 賢者藥劑'}</span><span>{player.potions[type]}</span>
+                                    </button>
+                                </Tooltip>
+                            ))}
+                        </div>
+                    </header>
+
+                    <main className="max-w-5xl mx-auto mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <aside className="space-y-6 flex flex-col">
+                            {/* 1. 委託日誌 */}
+                            <div className="card p-6 rounded-2xl border-t-2 border-primary order-1">
+                                <h3 className="font-bold text-primary mb-4 text-xs uppercase tracking-widest flex justify-between items-center">
+                                    <span>📜 委託日誌</span>
+                                    <button onClick={() => setViewMode(viewMode === 'active' ? 'history' : 'active')} className={`text-[10px] px-2 py-1 rounded border transition-colors ${viewMode === 'history' ? 'bg-primary text-white border-transparent' : 'border-white/20 hover:border-white/50 text-white/50 hover:text-white'}`}>
+                                        {viewMode === 'active' ? '切換歷史' : '返回任務'}
+                                    </button>
+                                </h3>
+                                
+                                {viewMode === 'active' ? (
+                                    <>
+                                        <input value={input.text} onChange={e => setInput({...input, text: e.target.value})} className="w-full bg-black/30 p-4 rounded-xl mb-4 border border-white/5 outline-none focus:border-primary/50" placeholder="寫下你的目標..." />
+                                        <div className="flex gap-2 mb-4 bg-black/20 p-1 rounded-lg">
+                                            <button onClick={() => setInput({ ...input, mode: 'duration' })} className={`flex-1 py-1 rounded text-xs font-bold transition-all ${input.mode === 'duration' ? 'bg-primary text-white' : 'text-white/30'}`}>快速時數</button>
+                                            <button onClick={() => setInput({ ...input, mode: 'date' })} className={`flex-1 py-1 rounded text-xs font-bold transition-all ${input.mode === 'date' ? 'bg-primary text-white' : 'text-white/30'}`}>指定日期</button>
+                                        </div>
+                                        {input.mode === 'duration' ? (
+                                            <div className="grid grid-cols-4 gap-2 mb-4">
+                                                {[1,2,4,6,12,24,72,168].map(h => <button key={h} onClick={()=>setInput({...input, hours:h})} className={`p-2 rounded text-[10px] border transition-all ${input.hours===h?'bg-primary border-primary':'border-white/5 opacity-30'}`}>{h}h</button>)}
+                                            </div>
+                                        ) : (
+                                            <div className="mb-4">
+                                                <div className="relative">
+                                                    <input type="datetime-local" className="w-full bg-black/30 border border-white/10 rounded-lg p-3 text-sm text-white outline-none focus:border-primary" onChange={(e) => setInput({ ...input, date: e.target.value })} />
+                                                    <div className="absolute right-3 top-3 pointer-events-none opacity-50"><Icon name="Calendar" /></div>
+                                                </div>
+                                            </div>
+                                        )}
+                                        <button onClick={handleAddTask} className="w-full bg-primary py-4 rounded-xl font-black shadow-lg hover:brightness-110 active:scale-95 transition-all">發布契約</button>
+                                    </>
+                                ) : (
+                                    <div className="text-center py-4 opacity-50 text-xs border border-dashed border-white/10 rounded-xl">
+                                        右側顯示歷史封存檔案
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 2. 秘密基地 */}
+                            <div className="card p-6 rounded-2xl border-l-4 border-green-600/50 order-2 relative overflow-hidden">
+                                {player.lv < 9 && (
+                                    <div className="absolute inset-0 bg-slate-900/90 z-20 flex flex-col items-center justify-center text-center p-4 backdrop-blur-sm">
+                                        <Icon name="Lock" size={48} className="text-white/20 mb-2" />
+                                        <h3 className="font-bold text-white text-lg">秘密基地未解鎖</h3>
+                                        <p className="text-white/50 text-xs mt-1">需達到等級 9 才能開啟</p>
+                                    </div>
+                                )}
+                                <h3 className="font-bold text-green-500 mb-6 text-xs uppercase tracking-widest flex justify-between items-center">
+                                    <span>🏡 秘密基地</span>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => setModalConfig({type: 'collection'})} className="text-[10px] border border-white/20 px-2 py-1 rounded hover:bg-white/10">📖 圖鑑</button>
+                                        <BulkInput value={bulkAmount} onChange={setBulkAmount} />
+                                    </div>
+                                </h3>
+                                <div className="space-y-6">
+                                    <div className="bg-black/20 p-4 rounded-2xl border border-white/5 relative">
+                                        <div className="absolute top-2 right-2"><button onClick={()=>{setTempInput(player.base.treeName); setModalConfig({type:'rename_tree'})}} className="text-white/30 hover:text-white p-1"><Icon name="Edit3" size={12} /></button></div>
+                                        <div className="flex items-center gap-4 mb-4">
+                                            <Tooltip content={treeTooltip} position="top">
+                                                <div className={`text-5xl transition-transform cursor-help ${activeAnim==='f'?'animate-pop':''}`}>{treeStage.icon}</div>
+                                            </Tooltip>
+                                            <div className="flex-1">
+                                                <div className="text-sm font-bold mb-1 flex items-center gap-2">{player.base.treeName} <span className="text-[10px] bg-green-900/50 px-1.5 rounded text-green-400">{treeStage.name}</span></div>
+                                                <div className="text-[10px] opacity-50 mb-1">果實進度 {Math.floor(player.base.treeProgress)}%</div>
+                                                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-green-500 transition-all duration-1000" style={{width: `${player.base.treeProgress}%`}}></div></div>
+                                            </div>
+                                        </div>
+                                        {player.base.treeProgress >= 100 ? (
+                                             <button onClick={harvestFruit} className="w-full bg-yellow-500 hover:bg-yellow-400 text-black py-3 rounded-xl font-black shadow-lg text-lg animate-bounce">🍎 採收奇蹟果實</button>
+                                        ) : (
+                                            <button onClick={()=>handleBaseAction('fertilize')} disabled={player.items.fertilizer<=0} className="w-full bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:opacity-50 text-white py-3 rounded-xl font-black shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 active:bg-white/20">
+                                                <span>💧</span> 施肥 {((Number(bulkAmount)||1) > 1) ? `(x${Math.min((Number(bulkAmount)||1), player.items.fertilizer)})` : `(${player.items.fertilizer})`}
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="bg-black/20 p-4 rounded-2xl border border-white/5 relative">
+                                        <div className="absolute top-2 right-2 flex gap-2">
+                                            <button onClick={()=>{setTempInput(player.base.petName); setModalConfig({type:'rename_pet'})}} className="text-white/30 hover:text-white p-1"><Icon name="Edit3" size={12} /></button>
+                                        </div>
+                                        <div className="flex items-center gap-4 mb-4">
+                                            <Tooltip content={petTooltip} position="top">
+                                                <div className={`text-5xl transition-transform cursor-help ${activeAnim==='p'||activeAnim==='toy'?'animate-pop':''}`}>{petStage.icon}</div>
+                                            </Tooltip>
+                                            <div className="flex-1">
+                                                <div className="text-sm font-bold mb-1 flex items-center gap-2">
+                                                    {player.base.petName} <span className="text-[10px] bg-orange-900/50 px-1.5 rounded text-orange-400">{petStage.name}</span>
+                                                    {player.base.petMood < 30 && <span className="text-[10px] text-red-400 animate-pulse">(想主人...)</span>}
+                                                </div>
+                                                <div className="flex gap-1 text-[10px] opacity-70 mb-1">
+                                                    <span className={player.base.petHunger<30?'text-red-400':''}>飽食 {player.base.petHunger}</span> | <span className={player.base.petMood<30?'text-blue-400':''}>心情 {player.base.petMood}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {/* Pet Action Area - Updated to handle exploring state */}
+                                        {player.base.petStatus === 'exploring' ? (
+                                            <div className="text-center py-3 bg-white/5 rounded-xl text-xs flex flex-col gap-1">
+                                                <span className="animate-pulse">正在探險中...</span>
+                                                {player.base.adventureEndTime && (
+                                                     <span className="font-mono text-orange-400">
+                                                        剩餘 {formatTime(player.base.adventureEndTime - curTime.getTime())}
+                                                     </span>
+                                                )}
+                                            </div>
+                                        ) : player.base.petStatus === 'critical' ? (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button onClick={()=>treatPet('med_kit')} disabled={player.items.med_kit<=0} className="col-span-2 bg-red-700 hover:bg-red-600 disabled:opacity-50 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2"><span>🚑</span> 急救 (重傷)</button>
+                                            </div>
+                                        ) : player.base.petStatus === 'injured' ? (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                 <button onClick={()=>treatPet('bandage')} disabled={player.items.bandage<=0} className="col-span-2 bg-red-500/50 hover:bg-red-500 border border-red-500 disabled:opacity-50 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2"><span>🩹</span> 包紮 (輕傷)</button>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button onClick={()=>handleBaseAction('feed')} disabled={player.items.food<=0} className="bg-orange-600 hover:bg-orange-500 disabled:bg-gray-700 disabled:opacity-50 text-white py-3 rounded-xl font-black shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 active:bg-white/20">
+                                                        <span>🥩</span> 餵食 {((Number(bulkAmount)||1) > 1) ? `(x${Math.min((Number(bulkAmount)||1), player.items.food)})` : `(${player.items.food})`}
+                                                    </button>
+                                                    <button onClick={()=>setModalConfig({type:'adventure'})} className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:opacity-50 text-white py-3 rounded-xl font-black shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 active:bg-white/20">
+                                                        <span>🎒</span> 探險
+                                                    </button>
+                                                </div>
+                                                <button onClick={()=>handleBaseAction('toy')} disabled={player.items.toy<=0} className="w-full bg-pink-600 hover:bg-pink-500 disabled:bg-gray-700 disabled:opacity-50 text-white py-2 rounded-xl font-bold flex items-center justify-center gap-2 text-xs transition-all cursor-pointer active:scale-95 active:bg-white/20">
+                                                    <span>🧶</span> 玩耍 {((Number(bulkAmount)||1) > 1) ? `(x${Math.min((Number(bulkAmount)||1), player.items.toy)})` : `(${player.items.toy})`}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 3. 交易所 */}
+                            <div className="card p-6 rounded-2xl border-l-4 border-yellow-600/50 order-3">
+                                <h3 className="font-bold text-yellow-500 mb-4 text-xs uppercase tracking-widest flex justify-between items-center">
+                                    <span>🛒 交易所</span>
+                                    <BulkInput value={bulkAmount} onChange={setBulkAmount} />
+                                </h3>
+                                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scroll">
+                                    {SHOP_ITEMS.map(item => (
+                                        <button key={item.i} onClick={()=>shopBuy(item.i,item.t,item.c)} className="w-full flex justify-between bg-white/5 p-3 rounded-xl text-[11px] hover:bg-white/10 transition-all cursor-pointer active:scale-95 active:bg-white/20 group relative">
+                                            <div className="text-left">
+                                                <div>{item.n} (${item.c * (Number(bulkAmount)||1)})</div>
+                                                <div className="text-[9px] opacity-40">{item.desc}</div>
+                                            </div>
+                                            <div className="flex items-center">
+                                                <span>{item.t==='item'?player.items[item.i]:player.potions[item.i]}</span>
+                                            </div>
+                                        </button>
+                                    ))}
+                                    {player.items.fruit > 0 && <div className="text-[10px] text-center text-green-400 mt-2">背包中有 {player.items.fruit} 顆奇蹟果實</div>}
+                                </div>
+                            </div>
+                        </aside>
+
+                        <section className="lg:col-span-2 space-y-4">
+                            {viewMode === 'active' ? (
+                                <>
+                                    {tasks.map(t => {
+                                        const remainingHours = Math.max(0, Math.floor((t.deadline - curTime)/3600000));
+                                        const isExpanded = expandedTaskId === t.id;
+                                        const completedSubtasks = t.subtasks ? t.subtasks.filter(st => st.completed).length : 0;
+                                        const totalSubtasks = t.subtasks ? t.subtasks.length : 0;
+                                        
+                                        const cardClass = t.isBoss ? "boss-card shadow-2xl scale-[1.02] border-2" : "card border-l-4 border-primary";
+                                        const bossHp = totalSubtasks > 0 ? ((totalSubtasks - completedSubtasks) / totalSubtasks) * 100 : (completedSubtasks > 0 ? 0 : 100);
+                                        const shakeClass = activeAnim === t.id ? 'damage-shake' : '';
+
+                                        return (
+                                            <div key={t.id} className={`${cardClass} rounded-2xl transition-all overflow-hidden mb-4 ${shakeClass}`}>
+                                                <div className="p-6 flex justify-between items-center cursor-pointer hover:bg-white/5" onClick={() => setExpandedTaskId(isExpanded ? null : t.id)}>
+                                                    <div className="flex-1 space-y-2">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className={`text-2xl ${t.isBoss ? 'text-4xl boss-icon animate-bounce' : ''}`}>{t.icon || '📜'}</span>
+                                                            <h4 className={`font-bold ${t.isBoss ? 'text-xl text-red-200' : 'text-lg'}`}>{t.content}</h4>
+                                                            {totalSubtasks > 0 && <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">{completedSubtasks}/{totalSubtasks}</span>}
+                                                        </div>
+                                                        
+                                                        {t.isBoss && (
+                                                            <div className="w-full max-w-xs h-3 bg-black/50 rounded-full overflow-hidden border border-red-900/50">
+                                                                <div className="h-full bg-red-600 transition-all duration-300" style={{width: `${bossHp}%`}}></div>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="flex flex-wrap gap-3 text-[10px] font-bold opacity-60 uppercase tracking-widest">
+                                                            <span className="bg-white/10 px-2 py-0.5 rounded text-white">{t.type || '日常'}</span>
+                                                            <span className={remainingHours < 3 ? 'text-red-400 animate-pulse' : ''}>⏳ {remainingHours}HR</span>
+                                                            <span className="text-yellow-500">Gold {t.gold}</span>
+                                                            <span className="text-primary">XP {t.exp}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-4 items-center">
+                                                        <button onClick={(e)=>{ e.stopPropagation(); setIsShaking(true); SoundEngine.play('fail'); setPlayer(p=>({...p, gold:Math.floor(p.gold*0.3), energy:Math.max(0,p.energy-60)})); setTasks(tasks.filter(tk=>tk.id!==t.id)); setTimeout(()=>setIsShaking(false),400); }} className="text-xs font-bold text-red-500/30 hover:text-red-500 transition-colors p-2">放棄</button>
+                                                        {(!t.isBoss || totalSubtasks === 0 || completedSubtasks === totalSubtasks) && (
+                                                            <button onClick={(e)=>{ e.stopPropagation(); initiateComplete(t); }} className="bg-primary text-white px-6 py-2 rounded-xl font-black shadow-lg hover:scale-105 transition-transform cursor-pointer active:scale-95">
+                                                                {t.isBoss ? '⚔️ 斬殺' : '完成'}
+                                                            </button>
+                                                        )}
+                                                        <div className="opacity-50 hover:opacity-100 transition-opacity"><Icon name={isExpanded ? "ChevronUp" : "ChevronDown"} /></div>
+                                                    </div>
+                                                </div>
+                                                
+                                                {isExpanded && (
+                                                    <div className="bg-black/20 p-4 border-t border-white/5">
+                                                        {t.isBoss && <div className="text-xs text-red-400 mb-2 font-bold text-center">擊破弱點以削減 BOSS 生命值！</div>}
+                                                        <div className="space-y-2 mb-4">
+                                                            {t.subtasks && t.subtasks.map(st => (
+                                                                <div key={st.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 group">
+                                                                    <button onClick={() => toggleSubtask(t.id, st.id)} className={`transition-colors ${st.completed ? 'text-primary' : 'text-white/20 hover:text-white/50'}`}>
+                                                                        {t.isBoss ? (st.completed ? <span className="text-lg">💥</span> : <Icon name="Sword" size={18} className="text-red-400" />) : <Icon name={st.completed ? "CheckSquare" : "Square"} />}
+                                                                    </button>
+                                                                    <span className={`flex-1 text-sm ${st.completed ? 'line-through opacity-30' : 'opacity-80'}`}>{st.text}</span>
+                                                                    <button onClick={() => removeSubtask(t.id, st.id)} className="opacity-0 group-hover:opacity-100 text-red-400/50 hover:text-red-400 transition-all cursor-pointer"><Icon name="Trash2" size={14} /></button>
+                                                                </div>
+                                                            ))}
+                                                            {(!t.subtasks || t.subtasks.length === 0) && <div className="text-center text-xs opacity-30 py-2">尚未新增{t.isBoss ? '弱點' : '子任務'}</div>}
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <input type="text" placeholder={t.isBoss ? "新增弱點 (例如: 找資料)..." : "輸入子任務..."} className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary" onKeyDown={(e) => { if (e.key === 'Enter') { addSubtask(t.id, e.target.value); e.target.value = ''; } }} />
+                                                            <button className="bg-white/10 hover:bg-primary hover:text-white px-3 rounded-lg transition-colors cursor-pointer active:scale-95" onClick={(e) => { const input = e.target.previousSibling; addSubtask(t.id, input.value); input.value = ''; }}><Icon name="Plus" size={16} /></button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    {tasks.length === 0 && <div className="text-center py-20 opacity-20 font-bold text-xl">目前佈告欄空空如也...</div>}
+                                </>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="text-center pb-4 border-b border-white/10 mb-4">
+                                        <h3 className="text-xl font-bold text-white/50">📜 歷史卷軸</h3>
+                                        <p className="text-xs opacity-30">紀錄著你過去的豐功偉業</p>
+                                    </div>
+                                    {history.map(t => (
+                                        <div key={t.id} className="card p-4 rounded-xl flex items-center gap-4 border-l-4 border-slate-600 opacity-60 hover:opacity-100 transition-opacity">
+                                            <span className="text-2xl grayscale">{t.icon}</span>
+                                            <div className="flex-1">
+                                                <h4 className="font-bold line-through decoration-white/30">{t.content}</h4>
+                                                <p className="text-[10px] opacity-50">完成於 {new Date(t.completedAt).toLocaleString()}</p>
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-400">已歸檔</span>
+                                        </div>
+                                    ))}
+                                    {history.length === 0 && <div className="text-center py-10 opacity-20">尚無歷史紀錄</div>}
+                                </div>
+                            )}
+                        </section>
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
